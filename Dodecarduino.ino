@@ -1,10 +1,15 @@
 #include <CapacitiveSensor.h>
+#include <Process.h>
+#include <yunOSC.h>
+
+#define IP_ADR "192.168.240.190"
+#define PORT 9001
 
 CapacitiveSensor cs_2_3 = CapacitiveSensor(2,3);
 
-bool pressed[12];
+int pressed[12];
 
-bool flip[12];
+int flip[12];
 
 unsigned long capStd[12];
 
@@ -27,9 +32,13 @@ unsigned int channels[8][3] =
 };
 
 void setup() {
+  Bridge.begin();
+  osc.begin(IP_ADR, PORT);
   cs_2_3.set_CS_AutocaL_Millis(0xFFFFFFFF);
   Serial.begin(9600);
   //PIN A0 reads from LDR's
+  //PIN A1 reads from LDR 10
+  //PIN A2 reads from LDR 12
   //PIN 2 sends to Z
   //PIN 3 revieves from Z
   pinMode(4,OUTPUT); // FIRST MUX - E
@@ -51,7 +60,7 @@ void setup() {
 }
 
 void loop() {
-  if(runs < 4){ //Getting initial standard values
+  if(runs < 10){ //Getting initial standard values
   
     digitalWrite(4,LOW);//Enabling first MUX's
     digitalWrite(12,HIGH);//Disabling second MUX's
@@ -64,7 +73,7 @@ void loop() {
     
     digitalWrite(4,HIGH);//Enabling first MUX's
     digitalWrite(12,LOW);//Disabling second MUX's
-    for(int i = 0; i < 4; i++){
+    for(int i = 0; i < 3; i++){
       for(int j = 0; j < 3; j++){
         digitalWrite(j+9,channels[i][j]);
       }
@@ -74,7 +83,7 @@ void loop() {
     runs++;
   }
   
-  else if(runs >= 5){
+  else if(runs >= 10){
     for(int i = 0; i < 12; i++){
       if(i < 8){
         digitalWrite(4,LOW);
@@ -99,13 +108,13 @@ void loop() {
       if(capStd[i] <= 3 + cap[i] * 1.04 && capStd[i] >= -3 + cap[i] * 0.96)
         capStd[i] = cap[i];
       if(ldr[i] < 300)
-        flip[i] = true;
+        flip[i] = 1;
       else
-        flip[i] = false;
+        flip[i] = 0;
       if(cap[i] > capStd[i] * 1.35 && cap[i] > 150)
-        pressed[i] = true;
+        pressed[i] = 1;
       else
-        pressed[i] = false;
+        pressed[i] = 0;
     }
   }
   
@@ -120,15 +129,25 @@ void loop() {
   if(incoming - 48 == 5)
     runs = 0;
   
-  Serial.print("CAP:\t");
+  int capLol[12];
+  int ldrLol[12];
+  
   for(int i = 0; i < 12; i++){
-    Serial.print(pressed[i]);
-    Serial.print("\t");
+    capLol[i] = cap[i];
+    ldrLol[i] = ldr[i];
   }
-  Serial.print("LDR:\t");
+  
+  osc.send("/cap", pressed, 12);
+  osc.send("/ldr", flip, 12);
+  Console.print("CAP:\t");
+  for(int i = 0; i < 12; i++){
+    Console.print(cap[i]);
+    Console.print("\t");
+  }
+  Console.print("LDR:\t");
   for(int i= 0; i < 12; i++){
-    Serial.print(flip[i]);
-    Serial.print("\t");
+    Console.print(ldr[i]);
+    Console.print("\t");
   }
-  Serial.print("\n");
+  Console.print("\n");
 }
